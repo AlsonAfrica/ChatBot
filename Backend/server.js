@@ -1,39 +1,43 @@
 import express from "express";
 import cors from "cors";
-import OpenAI from "openai";
 import dotenv from "dotenv";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-dotenv.config(); // Load environment variables from .env file
+
+dotenv.config(); 
 
 const app = express();
-const port = process.env.PORT || 5000;
 
-// Middleware
-app.use(express.json());
-app.use(cors());
+const PORT = process.env.PORT || 5000;
 
-// Initialize OpenAI
-const openai = new OpenAI({
-    apiKey: process.env.API_KEY, 
-});
+app.use(express.json()); 
 
-// API route to handle AI prompts
+app.use(cors()); 
+
+const genAI = new GoogleGenerativeAI(process.env.API_KEY_GEMINI);
+
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+
 app.post("/api/chat", async (req, res) => {
-    try {
-        const { message } = req.body;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: message }],
-        });
+  try {
+    const { prompt } = req.body;
 
-        res.json({ reply: response.choices[0].message.content });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+
+    const result = await model.generateContent(prompt);
+
+    const text = result.response.text();
+
+    res.json({ response: text });
+
+  } catch (error) {
+
+    console.error("Error:", error);
+
+    res.status(500).json({ error: "Something went wrong" });
+  }
 });
 
-// Start server
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
